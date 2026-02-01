@@ -1,0 +1,13 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/dashboard/page": "/dashboard",
+  "/dashboard/resumes/new/page": "/dashboard/resumes/new",
+  "/dashboard/resumes/page": "/dashboard/resumes",
+  "/dashboard/resumes/preview/page": "/dashboard/resumes/preview",
+  "/dashboard/resumes/templates/page": "/dashboard/resumes/templates",
+  "/favicon.ico/route": "/favicon.ico",
+  "/login/page": "/login",
+  "/page": "/",
+  "/signup/page": "/signup"
+}
