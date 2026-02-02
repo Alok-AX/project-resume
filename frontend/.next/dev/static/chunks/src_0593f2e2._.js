@@ -621,7 +621,7 @@ function TemplateGalleryPage() {
                                                 value: search,
                                                 onChange: (e)=>setSearch(e.target.value),
                                                 placeholder: "Search by role or style",
-                                                className: "pl-10 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm text-slate-700 dark:text-slate-200 min-w-[240px]"
+                                                className: "pl-10 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm text-slate-700 dark:text-slate-200 min-w-60"
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/dashboard/resumes/templates/page.tsx",
                                                 lineNumber: 72,

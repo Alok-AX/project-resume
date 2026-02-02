@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 const features = [
   {
     title: "Smart CV Builder",
@@ -210,8 +212,8 @@ export default function Home() {
             <a className="hover:text-slate-900 dark:hover:text-white" href="#templates">Templates</a>
           </nav>
           <div className="flex items-center gap-3 text-sm font-semibold">
-            <button className="rounded-full px-4 py-2 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">Login</button>
-            <button className="rounded-full bg-[#1a47e8] px-5 py-2 text-white shadow-sm transition hover:bg-[#0f32b8]">Get Started</button>
+            <Link href="/login" className="rounded-full px-4 py-2 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white cursor-pointer">Login</Link>
+            <Link href="/signup" className="rounded-full bg-[#1a47e8] px-5 py-2 text-white shadow-sm transition hover:bg-[#0f32b8] cursor-pointer">Get Started</Link>
           </div>
         </header>
 
@@ -229,10 +231,10 @@ export default function Home() {
               Join 30,000+ professionals who accelerated their careers. Create ATS-friendly resumes, generate tailored cover letters, and get hired faster.
             </p>
             <div className="flex flex-wrap items-center gap-3 pt-2">
-              <button className="rounded-full bg-[#1a47e8] hover:bg-[#0f32b8] px-6 py-3 text-sm font-semibold text-white shadow-sm transition">
+              <Link href="/signup" className="rounded-full bg-[#1a47e8] hover:bg-[#0f32b8] px-6 py-3 text-sm font-semibold text-white shadow-sm transition cursor-pointer">
                 Build my CV Now
-              </button>
-              <button className="flex items-center gap-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-6 py-3 text-sm font-semibold text-slate-800 dark:text-slate-200 shadow-sm transition hover:border-slate-300 dark:hover:border-slate-600">
+              </Link>
+              <button className="flex items-center gap-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-6 py-3 text-sm font-semibold text-slate-800 dark:text-slate-200 shadow-sm transition hover:border-slate-300 dark:hover:border-slate-600 cursor-pointer">
                 ▶ Watch Demo
               </button>
             </div>
