@@ -1,22 +1,60 @@
 'use client';
 
-import { useState } from 'react';
-import Image from 'next/image';
-
-type TabType = 'personal';
+import { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import type { RootState, AppDispatch } from '@/store';
+import { fetchProfile, updateProfile, clearProfileError } from '@/store/slices/profileSlice';
+import toast from 'react-hot-toast';
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<TabType>('personal');
+  const dispatch = useDispatch<AppDispatch>();
+  const { profile, loading, updateLoading, error, updateError } = useSelector(
+    (state: RootState) => state.profile
+  );
+
   const [isEditing, setIsEditing] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
-    fullName: 'Alex Johnson',
-    professionalHeadline: 'Product Designer & Content Strategist',
-    location: 'San Francisco, CA',
-    linkedinUrl: 'linkedin.com/in/alexjohnson',
-    bio: 'Experienced Product Designer with over 8 years in the industry. Specialized in creating user-centered designs for SaaS products and building strategic content frameworks.',
+    fullName: '',
+    professionalHeadline: '',
+    location: '',
+    linkedinUrl: '',
+    bio: '',
   });
+
+  // Fetch profile on mount
+  useEffect(() => {
+    dispatch(fetchProfile());
+  }, [dispatch]);
+
+  // Update form when profile loads
+  useEffect(() => {
+    if (profile) {
+      setFormData({
+        fullName: profile.fullName || '',
+        professionalHeadline: profile.professionalHeadline || '',
+        location: profile.location || '',
+        linkedinUrl: profile.linkedinUrl || '',
+        bio: profile.bio || '',
+      });
+    }
+  }, [profile]);
+
+  // Show error toast
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      dispatch(clearProfileError());
+    }
+  }, [error, dispatch]);
+
+  useEffect(() => {
+    if (updateError) {
+      toast.error(updateError);
+      dispatch(clearProfileError());
+    }
+  }, [updateError, dispatch]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({
@@ -25,16 +63,40 @@ export default function SettingsPage() {
     });
   };
 
-  const handleSave = () => {
-    // Handle save logic here
-    setIsEditing(false);
-    console.log('Saved:', formData);
+  const handleSave = async () => {
+    try {
+      await dispatch(updateProfile(formData)).unwrap();
+      toast.success('Profile updated successfully!');
+      setIsEditing(false);
+    } catch (err) {
+      // Error is handled by useEffect
+      console.error('Update failed:', err);
+    }
   };
 
   const handleCancel = () => {
-    // Reset form or cancel editing
+    if (profile) {
+      setFormData({
+        fullName: profile.fullName || '',
+        professionalHeadline: profile.professionalHeadline || '',
+        location: profile.location || '',
+        linkedinUrl: profile.linkedinUrl || '',
+        bio: profile.bio || '',
+      });
+    }
     setIsEditing(false);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin h-12 w-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-slate-600 dark:text-slate-400">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -92,12 +154,14 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Edit Button */}
-                <button
-                  onClick={() => setIsEditing(!isEditing)}
-                  className="w-full sm:w-auto px-6 py-2.5 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition"
-                >
-                  Edit Profile
-                </button>
+                {!isEditing && (
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="w-full sm:w-auto px-6 py-2.5 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                  >
+                    Edit Profile
+                  </button>
+                )}
               </div>
             </div>
 
@@ -190,6 +254,9 @@ export default function SettingsPage() {
                     rows={5}
                     className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#1a47e8] disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-500 dark:disabled:text-slate-400 resize-none transition"
                   />
+                  <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                    {formData.bio.length}/500 characters
+                  </p>
                 </div>
 
                 {/* Action Buttons */}
@@ -197,15 +264,27 @@ export default function SettingsPage() {
                   <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-3 pt-4">
                     <button
                       onClick={handleCancel}
-                      className="w-full sm:w-auto px-6 py-2.5 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                      disabled={updateLoading}
+                      className="w-full sm:w-auto px-6 py-2.5 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSave}
-                      className="w-full sm:w-auto px-6 py-2.5 bg-[#1a47e8] hover:bg-[#0f32b8] text-white font-semibold rounded-lg transition"
+                      disabled={updateLoading}
+                      className="w-full sm:w-auto px-6 py-2.5 bg-[#1a47e8] hover:bg-[#0f32b8] text-white font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                      Save Changes
+                      {updateLoading ? (
+                        <>
+                          <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Saving...
+                        </>
+                      ) : (
+                        'Save Changes'
+                      )}
                     </button>
                   </div>
                 )}

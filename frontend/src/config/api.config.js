@@ -14,6 +14,12 @@ export const API_ENDPOINTS = {
     LOGOUT: '/api/auth/logout',
   },
   
+  // Profile endpoints
+  PROFILE: {
+    GET: '/api/profile',
+    UPDATE: '/api/profile',
+  },
+  
   // Resume endpoints (future)
   RESUME: {
     GET_ALL: '/api/resumes',
