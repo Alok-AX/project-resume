@@ -27,6 +27,37 @@ const userSchema = new mongoose.Schema(
       minlength: [6, 'Password must be at least 6 characters'],
       select: false, // Don't return password by default
     },
+    professionalHeadline: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: [100, 'Professional headline cannot exceed 100 characters'],
+    },
+    location: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: [100, 'Location cannot exceed 100 characters'],
+    },
+    linkedinUrl: {
+      type: String,
+      default: '',
+      trim: true,
+      match: [
+        /^(https?:\/\/)?(www\.)?linkedin\.com\/(in|pub|company)\/[\w-]+\/?$/,
+        'Please provide a valid LinkedIn URL',
+      ],
+    },
+    bio: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: [500, 'Bio cannot exceed 500 characters'],
+    },
+    profilePicture: {
+      type: String,
+      default: '',
+    },
     resumes: [
       {
         type: mongoose.Schema.Types.ObjectId,
