@@ -13,6 +13,7 @@ export default function SettingsPage() {
   );
 
   const [isEditing, setIsEditing] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -21,12 +22,16 @@ export default function SettingsPage() {
     location: '',
     linkedinUrl: '',
     bio: '',
+    profilePicture: '',
   });
 
   // Fetch profile on mount
   useEffect(() => {
-    dispatch(fetchProfile());
-  }, [dispatch]);
+    const token = localStorage.getItem('token');
+    if (token) {
+      dispatch(fetchProfile());
+    }
+  }, []);
 
   // Update form when profile loads
   useEffect(() => {
@@ -37,24 +42,19 @@ export default function SettingsPage() {
         location: profile.location || '',
         linkedinUrl: profile.linkedinUrl || '',
         bio: profile.bio || '',
+        profilePicture: profile.profilePicture || '',
       });
+      setImagePreview(profile.profilePicture || null);
     }
   }, [profile]);
 
-  // Show error toast
+  // Show error toast only for fetch errors
   useEffect(() => {
     if (error) {
       toast.error(error);
       dispatch(clearProfileError());
     }
-  }, [error, dispatch]);
-
-  useEffect(() => {
-    if (updateError) {
-      toast.error(updateError);
-      dispatch(clearProfileError());
-    }
-  }, [updateError, dispatch]);
+  }, [error]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({
@@ -63,13 +63,43 @@ export default function SettingsPage() {
     });
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please upload an image file');
+        return;
+      }
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error('Image size should be less than 2MB');
+        return;
+      }
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setImagePreview(base64String);
+        setFormData({
+          ...formData,
+          profilePicture: base64String,
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSave = async () => {
     try {
       await dispatch(updateProfile(formData)).unwrap();
       toast.success('Profile updated successfully!');
       setIsEditing(false);
     } catch (err) {
-      // Error is handled by useEffect
+      // Show error toast immediately
+      const errorMessage = typeof err === 'string' ? err : 'Failed to update profile';
+      toast.error(errorMessage);
       console.error('Update failed:', err);
     }
   };
@@ -82,7 +112,9 @@ export default function SettingsPage() {
         location: profile.location || '',
         linkedinUrl: profile.linkedinUrl || '',
         bio: profile.bio || '',
+        profilePicture: profile.profilePicture || '',
       });
+      setImagePreview(profile.profilePicture || null);
     }
     setIsEditing(false);
   };
@@ -123,12 +155,32 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-4 sm:gap-6">
                   {/* Avatar */}
                   <div className="relative">
-                    <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-linear-to-br from-orange-200 to-orange-400 overflow-hidden">
-                      <div className="absolute inset-0 flex items-end justify-center">
-                        <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full bg-orange-300" />
-                      </div>
+                    <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full overflow-hidden border-2 border-slate-200 dark:border-slate-700">
+                      {imagePreview ? (
+                        <img 
+                          src={imagePreview} 
+                          alt={formData.fullName}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-linear-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-3xl font-bold">
+                          {formData.fullName.charAt(0).toUpperCase() || 'U'}
+                        </div>
+                      )}
                     </div>
-                    <button className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                    <input
+                      type="file"
+                      id="profilePictureInput"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      disabled={!isEditing}
+                    />
+                    <button 
+                      onClick={() => document.getElementById('profilePictureInput')?.click()}
+                      disabled={!isEditing}
+                      className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                       <svg className="h-4 w-4 text-slate-600 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                       </svg>

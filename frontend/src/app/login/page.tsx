@@ -18,13 +18,6 @@ export default function LoginPage() {
     password: '',
   });
 
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      router.push('/dashboard');
-    }
-  }, [isAuthenticated, router]);
-
   // Clear error on unmount
   useEffect(() => {
     return () => {
@@ -42,12 +35,20 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Login attempt started...');
     try {
       const result = await dispatch(loginUser(formData)).unwrap();
       console.log('Login successful:', result);
-      router.push('/dashboard');
+      console.log('Token in localStorage:', localStorage.getItem('token'));
+      
+      // Small delay to ensure localStorage is updated
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      console.log('Redirecting to dashboard...');
+      router.replace('/dashboard');
     } catch (err) {
-      console.error('Login failed:', err);
+      console.error('Login error:', err);
+      // Error is shown via Redux state
     }
   };
 

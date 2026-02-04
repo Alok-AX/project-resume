@@ -19,13 +19,6 @@ export default function SignupPage() {
     password: '',
   });
 
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      router.push('/dashboard');
-    }
-  }, [isAuthenticated, router]);
-
   // Clear error on unmount
   useEffect(() => {
     return () => {
@@ -44,11 +37,12 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const result = await dispatch(signupUser(formData)).unwrap();
-      console.log('Signup successful:', result);
-      router.push('/dashboard');
+      await dispatch(signupUser(formData)).unwrap();
+      // Small delay to ensure localStorage is updated
+      await new Promise(resolve => setTimeout(resolve, 100));
+      router.replace('/dashboard');
     } catch (err) {
-      console.error('Signup failed:', err);
+      // Error is shown via Redux state
     }
   };
 

@@ -32,8 +32,10 @@ export const fetchProfile = createAsyncThunk(
     try {
       const response = await profileService.getProfile();
       return response.data.data;
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to fetch profile');
+    } catch (error) {
+      const err = error as { message?: string; errors?: string[] };
+      const errorMessage = err.message || (err.errors && err.errors[0]) || 'Failed to fetch profile';
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -44,8 +46,12 @@ export const updateProfile = createAsyncThunk(
     try {
       const response = await profileService.updateProfile(profileData);
       return response.data.data;
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to update profile');
+    } catch (error) {
+      const err = error as { message?: string; errors?: string[] };
+      const errorMessage = err.message || (err.errors && err.errors[0]) || 'Failed to update profile';
+      console.log('Profile update error:', err);
+      console.log('Error message to show:', errorMessage);
+      return rejectWithValue(errorMessage);
     }
   }
 );

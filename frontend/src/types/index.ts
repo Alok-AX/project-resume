@@ -1,3 +1,17 @@
+// User Types
+export interface User {
+  _id?: string;
+  fullName: string;
+  email: string;
+  professionalHeadline?: string;
+  location?: string;
+  linkedinUrl?: string;
+  bio?: string;
+  profilePicture?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface TemplateData {
   id: string;
   name: string;

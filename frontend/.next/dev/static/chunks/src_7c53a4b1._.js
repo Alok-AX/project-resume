@@ -78,12 +78,24 @@ apiClient.interceptors.request.use((config)=>{
     return Promise.reject(error);
 });
 // Response interceptor - Handle errors globally
-apiClient.interceptors.response.use((response)=>response, (error)=>{
+apiClient.interceptors.response.use((response)=>{
+    console.log('API Response:', response.config.url, response.status);
+    return response;
+}, (error)=>{
+    console.error('API Error:', error.config?.url, error.response?.status, error.response?.data);
     // Handle token expiration
     if (error.response?.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
+        console.log('401 Unauthorized - clearing token and redirecting...');
+        // Check if we're already on login page to prevent redirect loop
+        const currentPath = ("TURBOPACK compile-time truthy", 1) ? window.location.pathname : "TURBOPACK unreachable";
+        if (!currentPath.includes('/login')) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            // Use setTimeout to prevent redirect during render
+            setTimeout(()=>{
+                window.location.href = '/login';
+            }, 0);
+        }
     }
     return Promise.reject(error);
 });
@@ -118,9 +130,12 @@ const authService = {
     // Login
     login: async (credentials)=>{
         try {
+            console.log('Auth service: Sending login request...');
             const response = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$services$2f$api$2e$service$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].post(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$config$2f$api$2e$config$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["API_ENDPOINTS"].AUTH.LOGIN, credentials);
+            console.log('Auth service: Login response:', response.data);
             return response;
         } catch (error) {
+            console.error('Auth service: Login error:', error.response?.data || error.message);
             throw error.response?.data || error.message;
         }
     },
@@ -177,27 +192,35 @@ const initialState = {
 const signupUser = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$reduxjs$2f$toolkit$2f$dist$2f$redux$2d$toolkit$2e$modern$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["createAsyncThunk"])('auth/signup', async (userData, { rejectWithValue })=>{
     try {
         const response = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$services$2f$auth$2e$service$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["authService"].signup(userData);
-        // Store token in localStorage
-        if (response.data?.token) {
-            localStorage.setItem('token', response.data.token);
-            localStorage.setItem('user', JSON.stringify(response.data.user));
+        // Backend returns: { success: true, data: { token, user } }
+        const { token, user } = response.data.data || response.data;
+        if (token) {
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(user));
         }
-        return response.data;
+        return response.data.data || response.data;
     } catch (error) {
-        return rejectWithValue(error.response?.data?.message || error.message || 'Signup failed');
+        const err = error;
+        return rejectWithValue(err.response?.data?.message || err.message || 'Signup failed');
     }
 });
 const loginUser = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$reduxjs$2f$toolkit$2f$dist$2f$redux$2d$toolkit$2e$modern$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["createAsyncThunk"])('auth/login', async (credentials, { rejectWithValue })=>{
     try {
         const response = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$services$2f$auth$2e$service$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["authService"].login(credentials);
-        // Store token in localStorage
-        if (response.data?.token) {
-            localStorage.setItem('token', response.data.token);
-            localStorage.setItem('user', JSON.stringify(response.data.user));
+        console.log('Full response:', response.data);
+        // Backend returns: { success: true, data: { token, user } }
+        const { token, user } = response.data.data || response.data;
+        console.log('Extracted token:', token);
+        console.log('Extracted user:', user);
+        if (token) {
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(user));
+            console.log('Token saved to localStorage:', localStorage.getItem('token'));
         }
-        return response.data;
+        return response.data.data || response.data;
     } catch (error) {
-        return rejectWithValue(error.response?.data?.message || error.message || 'Login failed');
+        const err = error;
+        return rejectWithValue(err.response?.data?.message || err.message || 'Login failed');
     }
 });
 const getCurrentUser = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$reduxjs$2f$toolkit$2f$dist$2f$redux$2d$toolkit$2e$modern$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["createAsyncThunk"])('auth/me', async (_, { rejectWithValue })=>{
@@ -205,7 +228,8 @@ const getCurrentUser = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_
         const response = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$services$2f$auth$2e$service$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["authService"].getMe();
         return response.data;
     } catch (error) {
-        return rejectWithValue(error.response?.data?.message || error.message || 'Failed to get user');
+        const err = error;
+        return rejectWithValue(err.response?.data?.message || err.message || 'Failed to get user');
     }
 });
 const authSlice = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$reduxjs$2f$toolkit$2f$dist$2f$redux$2d$toolkit$2e$modern$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["createSlice"])({
@@ -311,7 +335,11 @@ const profileService = {
             const response = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$services$2f$api$2e$service$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].put(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$config$2f$api$2e$config$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["API_ENDPOINTS"].PROFILE.UPDATE, profileData);
             return response;
         } catch (error) {
-            throw error.response?.data || error.message;
+            console.log('Profile service error:', error.response?.data);
+            // Throw the complete error object for better handling
+            throw error.response?.data || {
+                message: error.message
+            };
         }
     }
 };
@@ -349,7 +377,9 @@ const fetchProfile = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_mo
         const response = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$services$2f$profile$2e$service$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["profileService"].getProfile();
         return response.data.data;
     } catch (error) {
-        return rejectWithValue(error.message || 'Failed to fetch profile');
+        const err = error;
+        const errorMessage = err.message || err.errors && err.errors[0] || 'Failed to fetch profile';
+        return rejectWithValue(errorMessage);
     }
 });
 const updateProfile = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$reduxjs$2f$toolkit$2f$dist$2f$redux$2d$toolkit$2e$modern$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["createAsyncThunk"])('profile/update', async (profileData, { rejectWithValue })=>{
@@ -357,7 +387,11 @@ const updateProfile = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_m
         const response = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$services$2f$profile$2e$service$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["profileService"].updateProfile(profileData);
         return response.data.data;
     } catch (error) {
-        return rejectWithValue(error.message || 'Failed to update profile');
+        const err = error;
+        const errorMessage = err.message || err.errors && err.errors[0] || 'Failed to update profile';
+        console.log('Profile update error:', err);
+        console.log('Error message to show:', errorMessage);
+        return rejectWithValue(errorMessage);
     }
 });
 const profileSlice = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$reduxjs$2f$toolkit$2f$dist$2f$redux$2d$toolkit$2e$modern$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["createSlice"])({

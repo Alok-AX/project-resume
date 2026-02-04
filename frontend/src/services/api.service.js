@@ -26,13 +26,25 @@ apiClient.interceptors.request.use(
 
 // Response interceptor - Handle errors globally
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log('API Response:', response.config.url, response.status);
+    return response;
+  },
   (error) => {
+    console.error('API Error:', error.config?.url, error.response?.status, error.response?.data);
     // Handle token expiration
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      console.log('401 Unauthorized - clearing token and redirecting...');
+      // Check if we're already on login page to prevent redirect loop
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+      if (!currentPath.includes('/login')) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        // Use setTimeout to prevent redirect during render
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 0);
+      }
     }
     return Promise.reject(error);
   }

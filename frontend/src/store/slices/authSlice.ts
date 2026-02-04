@@ -1,9 +1,10 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { authService } from '../../services/auth.service';
+import type { User } from '../../types';
 
 interface AuthState {
   isAuthenticated: boolean;
-  user: any | null;
+  user: User | null;
   token: string | null;
   loading: boolean;
   error: string | null;
@@ -23,14 +24,16 @@ export const signupUser = createAsyncThunk(
   async (userData: { fullName: string; email: string; password: string }, { rejectWithValue }) => {
     try {
       const response = await authService.signup(userData);
-      // Store token in localStorage
-      if (response.data?.token) {
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+      // Backend returns: { success: true, data: { token, user } }
+      const { token, user } = response.data.data || response.data;
+      if (token) {
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
       }
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message || 'Signup failed');
+      return response.data.data || response.data;
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      return rejectWithValue(err.response?.data?.message || err.message || 'Signup failed');
     }
   }
 );
@@ -40,14 +43,20 @@ export const loginUser = createAsyncThunk(
   async (credentials: { email: string; password: string }, { rejectWithValue }) => {
     try {
       const response = await authService.login(credentials);
-      // Store token in localStorage
-      if (response.data?.token) {
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+      console.log('Full response:', response.data);
+      // Backend returns: { success: true, data: { token, user } }
+      const { token, user } = response.data.data || response.data;
+      console.log('Extracted token:', token);
+      console.log('Extracted user:', user);
+      if (token) {
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+        console.log('Token saved to localStorage:', localStorage.getItem('token'));
       }
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message || 'Login failed');
+      return response.data.data || response.data;
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      return rejectWithValue(err.response?.data?.message || err.message || 'Login failed');
     }
   }
 );
@@ -58,8 +67,9 @@ export const getCurrentUser = createAsyncThunk(
     try {
       const response = await authService.getMe();
       return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message || 'Failed to get user');
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      return rejectWithValue(err.response?.data?.message || err.message || 'Failed to get user');
     }
   }
 );
