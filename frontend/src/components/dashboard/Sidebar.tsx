@@ -13,7 +13,7 @@ const menuItems = [
   { name: 'Template Gallery', href: '/dashboard/resumes/templates', icon: 'template' },
   { name: 'Cover Letters', href: '/dashboard/cover-letters', icon: 'letter' },
   { name: 'Job Tracker', href: '/dashboard/job-tracker', icon: 'briefcase' },
-  { name: 'Settings', href: '/dashboard/settings', icon: 'settings' },
+  { name: 'Profile', href: '/dashboard/profile', icon: 'settings' },
 ];
 
 export default function Sidebar() {
