@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001',
+  BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001ss',
   TIMEOUT: 30000,
 };
 
@@ -20,13 +20,14 @@ export const API_ENDPOINTS = {
     UPDATE: '/api/profile',
   },
   
-  // Resume endpoints (future)
+  // Resume endpoints
   RESUME: {
     GET_ALL: '/api/resumes',
-    GET_ONE: '/api/resumes/:id',
+    GET_ONE: (id) => `/api/resumes/${id}`,
     CREATE: '/api/resumes',
-    UPDATE: '/api/resumes/:id',
-    DELETE: '/api/resumes/:id',
+    UPDATE: (id) => `/api/resumes/${id}`,
+    DELETE: (id) => `/api/resumes/${id}`,
+    DUPLICATE: (id) => `/api/resumes/${id}/duplicate`,
   },
   
   // Template endpoints (future)

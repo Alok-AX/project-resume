@@ -55,6 +55,7 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/profile', require('./routes/profile'));
+app.use('/api/resumes', require('./routes/resumeRoutes'));
 
 // Health check route
 app.get('/api/health', (req, res) => {

@@ -1,7 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useDispatch, useSelector } from 'react-redux';
+import type { RootState, AppDispatch } from '@/store';
+import { fetchProfile } from '@/store/slices/profileSlice';
+import { createResume, updateResume, fetchResumeById, clearCurrentResume } from '@/store/slices/resumeSlice';
+import { showSuccess, showError, showErrorFromException } from '@/utils/toast';
 
 type Tab = 'personal' | 'summary' | 'experience' | 'education' | 'projects' | 'skills';
 
@@ -15,8 +21,17 @@ const tabs = [
 ] as const;
 
 export default function NewResumePage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const dispatch = useDispatch<AppDispatch>();
+  const resumeId = searchParams.get('id');
+  
+  const { profile } = useSelector((state: RootState) => state.profile);
+  const { currentResume, createLoading, updateLoading } = useSelector((state: RootState) => state.resume);
+  
   const [activeTab, setActiveTab] = useState<Tab>('personal');
-  const [isSaved, setIsSaved] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [resumeTitle, setResumeTitle] = useState('Untitled Resume');
   const [formData, setFormData] = useState({
     // Personal
     fullName: '',
@@ -43,9 +58,139 @@ export default function NewResumePage() {
     skills: [] as string[],
   });
 
+  // Fetch profile data on mount
+  useEffect(() => {
+    dispatch(fetchProfile());
+  }, [dispatch]);
+
+  // Fetch existing resume if editing
+  useEffect(() => {
+    if (resumeId) {
+      dispatch(fetchResumeById(resumeId));
+    }
+    return () => {
+      dispatch(clearCurrentResume());
+    };
+  }, [resumeId, dispatch]);
+
+  // Prefill from profile data
+  useEffect(() => {
+    if (profile && !resumeId && !formData.fullName) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: profile.fullName || '',
+        email: profile.email || '',
+        phone: prev.phone || '',
+        location: profile.location || '',
+        linkedin: profile.linkedinUrl || '',
+        profilePhoto: profile.profilePicture || '',
+      }));
+    }
+  }, [profile, resumeId]);
+
+  // Load existing resume data
+  useEffect(() => {
+    if (currentResume && resumeId) {
+      setResumeTitle(currentResume.title || 'Untitled Resume');
+      setFormData({
+        fullName: currentResume.personalInfo?.fullName || '',
+        email: currentResume.personalInfo?.email || '',
+        phone: currentResume.personalInfo?.phone || '',
+        location: currentResume.personalInfo?.location || '',
+        website: currentResume.personalInfo?.website || '',
+        linkedin: currentResume.personalInfo?.linkedin || '',
+        profilePhoto: currentResume.personalInfo?.profilePhoto || '',
+        summary: currentResume.summary || '',
+        experiences: currentResume.experiences || [],
+        education: currentResume.education || [],
+        projects: currentResume.projects || [],
+        skills: currentResume.skills || [],
+      });
+    }
+  }, [currentResume, resumeId]);
+
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    setIsSaved(false);
+  };
+
+  const handleClearForm = () => {
+    if (confirm('Are you sure you want to clear all data? This cannot be undone.')) {
+      setFormData({
+        fullName: '',
+        email: '',
+        phone: '',
+        location: '',
+        website: '',
+        linkedin: '',
+        profilePhoto: '',
+        summary: '',
+        experiences: [],
+        education: [],
+        projects: [],
+        skills: [],
+      });
+      showSuccess('Form cleared');
+    }
+  };
+
+  const handleSaveResume = async (status: 'draft' | 'published' = 'draft') => {
+    try {
+      setIsSaving(true);
+
+      const resumeData = {
+        title: resumeTitle,
+        personalInfo: {
+          fullName: formData.fullName,
+          email: formData.email,
+          phone: formData.phone,
+          location: formData.location,
+          website: formData.website,
+          linkedin: formData.linkedin,
+          profilePhoto: formData.profilePhoto,
+        },
+        summary: formData.summary,
+        experiences: formData.experiences,
+        education: formData.education,
+        projects: formData.projects,
+        skills: formData.skills,
+        status,
+      };
+
+      if (resumeId) {
+        // Update existing resume
+        const result = await dispatch(updateResume({ id: resumeId, data: resumeData })).unwrap();
+        const successMessage = result?.message || 'Resume updated successfully!';
+        showSuccess(successMessage);
+      } else {
+        // Create new resume
+        const result = await dispatch(createResume(resumeData)).unwrap();
+        const successMessage = result?.message || 'Resume created successfully!';
+        showSuccess(successMessage);
+        // Redirect to edit mode with the new resume ID
+        if (result._id) {
+          router.replace(`/dashboard/resumes/new?id=${result._id}`);
+        }
+      }
+    } catch (err) {
+      showErrorFromException(err, 'Failed to save resume');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Navigation helpers
+  const goToNextTab = () => {
+    const currentIndex = tabs.findIndex(tab => tab.id === activeTab);
+    if (currentIndex < tabs.length - 1) {
+      setActiveTab(tabs[currentIndex + 1].id as Tab);
+    }
+  };
+
+  const goToPreviousTab = () => {
+    const currentIndex = tabs.findIndex(tab => tab.id === activeTab);
+    if (currentIndex > 0) {
+      setActiveTab(tabs[currentIndex - 1].id as Tab);
+    }
   };
 
   return (
@@ -53,30 +198,46 @@ export default function NewResumePage() {
       {/* Header */}
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-8 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
-            <Link href="/dashboard/resumes" className="flex items-center gap-2 hover:text-slate-900 dark:hover:text-white transition">
+          <div className="flex items-center gap-3 text-sm">
+            <Link href="/dashboard/resumes" className="flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
               <span>Back</span>
             </Link>
-            <span>/</span>
-            <span className="font-semibold text-slate-900 dark:text-white">Senior Product Designer</span>
-            {/* <span>/</span> */}
-            {/* <span className="font-semibold text-slate-900 dark:text-white">Edit CV</span> */}
+            <span className="text-slate-400">/</span>
+            <input
+              type="text"
+              value={resumeTitle}
+              onChange={(e) => setResumeTitle(e.target.value)}
+              className="font-semibold text-slate-900 dark:text-white bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1"
+              placeholder="Resume Title"
+            />
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
-              <div className="h-2 w-2 rounded-full bg-emerald-600 dark:bg-emerald-400 animate-pulse" />
-              <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                {isSaved ? 'Saved' : 'Saving...'}
-              </span>
-            </div>
+            <button
+              onClick={handleClearForm}
+              className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 font-semibold text-sm transition"
+              title="Clear all data"
+            >
+              🗑️ Clear
+            </button>
+            <button
+              onClick={() => handleSaveResume('draft')}
+              disabled={isSaving || createLoading || updateLoading}
+              className="px-5 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-white text-sm font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSaving ? '💾 Saving...' : '💾 Save Draft'}
+            </button>
             <Link href="/dashboard/resumes/preview" className="px-4 py-2 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-semibold text-sm transition">
               👁️ Preview
             </Link>
-            <button className="px-5 py-2 bg-[#1a47e8] hover:bg-[#0f32b8] text-white text-sm font-semibold rounded-lg transition">
-              ⬇️ Download PDF
+            <button
+              onClick={() => handleSaveResume('published')}
+              disabled={isSaving || createLoading || updateLoading}
+              className="px-5 py-2 bg-[#1a47e8] hover:bg-[#0f32b8] text-white text-sm font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSaving ? 'Publishing...' : '✓ Save & Publish'}
             </button>
           </div>
         </div>
@@ -107,12 +268,12 @@ export default function NewResumePage() {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2">
-            {activeTab === 'personal' && <PersonalDetailsTab formData={formData} onChange={handleInputChange} />}
-            {activeTab === 'summary' && <SummaryTab formData={formData} onChange={handleInputChange} />}
-            {activeTab === 'experience' && <ExperienceTab formData={formData} onChange={handleInputChange} />}
-            {activeTab === 'education' && <EducationTab formData={formData} onChange={handleInputChange} />}
-            {activeTab === 'projects' && <ProjectsTab formData={formData} onChange={handleInputChange} />}
-            {activeTab === 'skills' && <SkillsTab formData={formData} onChange={handleInputChange} />}
+            {activeTab === 'personal' && <PersonalDetailsTab formData={formData} onChange={handleInputChange} onNext={goToNextTab} />}
+            {activeTab === 'summary' && <SummaryTab formData={formData} onChange={handleInputChange} onNext={goToNextTab} onBack={goToPreviousTab} />}
+            {activeTab === 'experience' && <ExperienceTab formData={formData} onChange={handleInputChange} onNext={goToNextTab} onBack={goToPreviousTab} />}
+            {activeTab === 'education' && <EducationTab formData={formData} onChange={handleInputChange} onNext={goToNextTab} onBack={goToPreviousTab} />}
+            {activeTab === 'projects' && <ProjectsTab formData={formData} onChange={handleInputChange} onNext={goToNextTab} onBack={goToPreviousTab} />}
+            {activeTab === 'skills' && <SkillsTab formData={formData} onChange={handleInputChange} onBack={goToPreviousTab} />}
           </div>
 
           {/* Sidebar */}
@@ -129,7 +290,7 @@ export default function NewResumePage() {
   );
 }
 
-function PersonalDetailsTab({ formData, onChange }: any) {
+function PersonalDetailsTab({ formData, onChange, onNext }: any) {
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8">
       <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Basic Information</h2>
@@ -217,7 +378,10 @@ function PersonalDetailsTab({ formData, onChange }: any) {
           <button className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
             Discard
           </button>
-          <button className="px-6 py-3 bg-[#1a47e8] hover:bg-[#0f32b8] text-white font-semibold rounded-lg transition flex items-center gap-2">
+          <button 
+            onClick={onNext}
+            className="px-6 py-3 bg-[#1a47e8] hover:bg-[#0f32b8] text-white font-semibold rounded-lg transition flex items-center gap-2"
+          >
             Save & Next
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -229,7 +393,7 @@ function PersonalDetailsTab({ formData, onChange }: any) {
   );
 }
 
-function SummaryTab({ formData, onChange }: any) {
+function SummaryTab({ formData, onChange, onNext, onBack }: any) {
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8">
       <div className="flex items-center justify-between mb-6">
@@ -282,10 +446,16 @@ function SummaryTab({ formData, onChange }: any) {
         </div>
 
         <div className="flex justify-between items-center pt-6 border-t border-slate-200 dark:border-slate-800">
-          <button className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+          <button 
+            onClick={onBack}
+            className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+          >
             Back
           </button>
-          <button className="px-6 py-3 bg-[#1a47e8] hover:bg-[#0f32b8] text-white font-semibold rounded-lg transition flex items-center gap-2">
+          <button 
+            onClick={onNext}
+            className="px-6 py-3 bg-[#1a47e8] hover:bg-[#0f32b8] text-white font-semibold rounded-lg transition flex items-center gap-2"
+          >
             Save & Continue
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -297,10 +467,10 @@ function SummaryTab({ formData, onChange }: any) {
   );
 }
 
-function ExperienceTab({ formData, onChange }: any) {
-  const [experiences, setExperiences] = useState([
+function ExperienceTab({ formData, onChange, onNext, onBack }: any) {
+  const experiences = formData.experiences.length > 0 ? formData.experiences : [
     {
-      id: 1,
+      id: Date.now(),
       jobTitle: '',
       employer: '',
       startDate: '',
@@ -309,11 +479,11 @@ function ExperienceTab({ formData, onChange }: any) {
       currentlyWork: false,
       description: '',
     },
-  ]);
+  ];
 
   const addExperience = () => {
-    const newId = Math.max(...experiences.map(e => e.id), 0) + 1;
-    setExperiences([...experiences, {
+    const newId = Date.now();
+    onChange('experiences', [...experiences, {
       id: newId,
       jobTitle: '',
       employer: '',
@@ -327,12 +497,12 @@ function ExperienceTab({ formData, onChange }: any) {
 
   const removeExperience = (id: number) => {
     if (experiences.length > 1) {
-      setExperiences(experiences.filter(e => e.id !== id));
+      onChange('experiences', experiences.filter((e: any) => e.id !== id));
     }
   };
 
   const updateExperience = (id: number, field: string, value: any) => {
-    setExperiences(experiences.map(e => e.id === id ? { ...e, [field]: value } : e));
+    onChange('experiences', experiences.map((e: any) => e.id === id ? { ...e, [field]: value } : e));
   };
 
   return (
@@ -352,7 +522,7 @@ function ExperienceTab({ formData, onChange }: any) {
         </div>
 
         <div className="space-y-8">
-          {experiences.map((exp) => (
+          {experiences.map((exp: any) => (
             <div key={exp.id} className="border border-slate-200 dark:border-slate-700 rounded-lg p-6 relative">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -456,10 +626,16 @@ function ExperienceTab({ formData, onChange }: any) {
         </div>
 
         <div className="flex justify-between items-center pt-6 border-t border-slate-200 dark:border-slate-800 mt-8">
-          <button className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+          <button 
+            onClick={onBack}
+            className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+          >
             Back
           </button>
-          <button className="px-6 py-3 bg-[#1a47e8] hover:bg-[#0f32b8] text-white font-semibold rounded-lg transition flex items-center gap-2">
+          <button 
+            onClick={onNext}
+            className="px-6 py-3 bg-[#1a47e8] hover:bg-[#0f32b8] text-white font-semibold rounded-lg transition flex items-center gap-2"
+          >
             Save & Continue
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -471,10 +647,10 @@ function ExperienceTab({ formData, onChange }: any) {
   );
 }
 
-function EducationTab({ formData, onChange }: any) {
-  const [educations, setEducations] = useState([
+function EducationTab({ formData, onChange, onNext, onBack }: any) {
+  const educations = formData.education.length > 0 ? formData.education : [
     {
-      id: 1,
+      id: Date.now(),
       school: '',
       degree: '',
       startDate: '',
@@ -482,11 +658,11 @@ function EducationTab({ formData, onChange }: any) {
       city: '',
       description: '',
     },
-  ]);
+  ];
 
   const addEducation = () => {
-    const newId = Math.max(...educations.map(e => e.id), 0) + 1;
-    setEducations([...educations, {
+    const newId = Date.now();
+    onChange('education', [...educations, {
       id: newId,
       school: '',
       degree: '',
@@ -499,12 +675,12 @@ function EducationTab({ formData, onChange }: any) {
 
   const removeEducation = (id: number) => {
     if (educations.length > 1) {
-      setEducations(educations.filter(e => e.id !== id));
+      onChange('education', educations.filter((e: any) => e.id !== id));
     }
   };
 
   const updateEducation = (id: number, field: string, value: any) => {
-    setEducations(educations.map(e => e.id === id ? { ...e, [field]: value } : e));
+    onChange('education', educations.map((e: any) => e.id === id ? { ...e, [field]: value } : e));
   };
 
   return (
@@ -523,7 +699,7 @@ function EducationTab({ formData, onChange }: any) {
       </div>
 
       <div className="space-y-8">
-        {educations.map((edu) => (
+        {educations.map((edu: any) => (
           <div key={edu.id} className="border border-slate-200 dark:border-slate-700 rounded-lg p-6 relative">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -628,10 +804,16 @@ function EducationTab({ formData, onChange }: any) {
       </div>
 
       <div className="flex justify-between items-center pt-6 border-t border-slate-200 dark:border-slate-800 mt-8">
-        <button className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+        <button 
+          onClick={onBack}
+          className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+        >
           Back
         </button>
-        <button className="px-6 py-3 bg-[#1a47e8] hover:bg-[#0f32b8] text-white font-semibold rounded-lg transition flex items-center gap-2">
+        <button 
+          onClick={onNext}
+          className="px-6 py-3 bg-[#1a47e8] hover:bg-[#0f32b8] text-white font-semibold rounded-lg transition flex items-center gap-2"
+        >
           Save & Continue
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -642,20 +824,21 @@ function EducationTab({ formData, onChange }: any) {
   );
 }
 
-function ProjectsTab({ formData, onChange }: any) {
-  const [projects, setProjects] = useState([
+function ProjectsTab({ formData, onChange, onNext, onBack }: any) {
+  const projects = formData.projects.length > 0 ? formData.projects : [
     {
-      id: 1,
-      title: 'E-commerce Redesign',
-      link: 'behance.net/alok/ecommerce',
-      role: 'Lead UX Designer',
-      description: '• Led a team of 3 designers to revamp the checkout flow\n• Increased conversion rate by 15% within the first month\n• Conducted user research and A/B testing to validate design decisions',
+      id: Date.now(),
+      title: '',
+      link: '',
+      role: '',
+      description: '',
     },
-  ]);
+  ];
 
   const addProject = () => {
-    setProjects([...projects, {
-      id: projects.length + 1,
+    const newId = Date.now();
+    onChange('projects', [...projects, {
+      id: newId,
       title: '',
       link: '',
       role: '',
@@ -664,7 +847,11 @@ function ProjectsTab({ formData, onChange }: any) {
   };
 
   const removeProject = (id: number) => {
-    setProjects(projects.filter(p => p.id !== id));
+    onChange('projects', projects.filter((p: any) => p.id !== id));
+  };
+
+  const updateProject = (id: number, field: string, value: any) => {
+    onChange('projects', projects.map((p: any) => p.id === id ? { ...p, [field]: value } : p));
   };
 
   return (
@@ -684,7 +871,7 @@ function ProjectsTab({ formData, onChange }: any) {
         </div>
 
         <div className="space-y-8">
-          {projects.map((project) => (
+          {projects.map((project: any) => (
             <div key={project.id} className="border border-slate-200 dark:border-slate-700 rounded-lg p-6 relative">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -710,7 +897,8 @@ function ProjectsTab({ formData, onChange }: any) {
                   <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-2">Project Title</label>
                   <input
                     type="text"
-                    defaultValue={project.title}
+                    value={project.title}
+                    onChange={(e) => updateProject(project.id, 'title', e.target.value)}
                     placeholder="E-commerce Redesign"
                     className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1a47e8]"
                   />
@@ -720,7 +908,8 @@ function ProjectsTab({ formData, onChange }: any) {
                   <div className="relative">
                     <input
                       type="text"
-                      defaultValue={project.link}
+                      value={project.link}
+                      onChange={(e) => updateProject(project.id, 'link', e.target.value)}
                       placeholder="behance.net/alok/ecommerce"
                       className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1a47e8]"
                     />
@@ -737,7 +926,8 @@ function ProjectsTab({ formData, onChange }: any) {
                 <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-2">Role</label>
                 <input
                   type="text"
-                  defaultValue={project.role}
+                  value={project.role}
+                  onChange={(e) => updateProject(project.id, 'role', e.target.value)}
                   placeholder="e.g. Lead UX Designer"
                   className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1a47e8] mb-4"
                 />
@@ -749,7 +939,8 @@ function ProjectsTab({ formData, onChange }: any) {
                   <span className="text-xs text-slate-500 dark:text-slate-400">Markdown supported</span>
                 </div>
                 <textarea
-                  defaultValue={project.description}
+                  value={project.description}
+                  onChange={(e) => updateProject(project.id, 'description', e.target.value)}
                   placeholder="Led a team of 3 designers to revamp the checkout flow..."
                   rows={4}
                   className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1a47e8] resize-none"
@@ -760,13 +951,19 @@ function ProjectsTab({ formData, onChange }: any) {
         </div>
 
         <div className="flex justify-between items-center pt-6 border-t border-slate-200 dark:border-slate-800 mt-8">
-          <button className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+          <button 
+            onClick={onBack}
+            className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+          >
             Back
           </button>
-          <button className="px-6 py-3 bg-[#1a47e8] hover:bg-[#0f32b8] text-white font-semibold rounded-lg transition flex items-center gap-2">
-            Save Changes
+          <button 
+            onClick={onNext}
+            className="px-6 py-3 bg-[#1a47e8] hover:bg-[#0f32b8] text-white font-semibold rounded-lg transition flex items-center gap-2"
+          >
+            Save & Continue
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </button>
         </div>
@@ -775,39 +972,26 @@ function ProjectsTab({ formData, onChange }: any) {
   );
 }
 
-function SkillsTab({ formData, onChange }: any) {
+function SkillsTab({ formData, onChange, onBack }: any) {
   const [skillInput, setSkillInput] = useState('');
-  const [skills, setSkills] = useState({
-    technical: ['Salesforce', 'HubSpot', 'Data Analysis', 'Microsoft Excel'],
-    soft: ['Leadership', 'Public Speaking', 'Problem Solving'],
-    tools: [],
-  });
+  const skills = formData.skills || [];
 
-  const suggestedSkills = ['CRM Software', 'Lead Generation', 'Cold Calling', 'B2B Sales', 'Strategic Planning'];
+  const suggestedSkills = ['CRM Software', 'Lead Generation', 'Cold Calling', 'B2B Sales', 'Strategic Planning', 'Salesforce', 'HubSpot', 'Data Analysis', 'Microsoft Excel', 'Leadership', 'Public Speaking', 'Problem Solving'];
 
-  const addSkill = (type: 'technical' | 'soft' | 'tools') => {
-    if (skillInput.trim()) {
-      setSkills(prev => ({
-        ...prev,
-        [type]: [...prev[type], skillInput],
-      }));
+  const addSkill = () => {
+    if (skillInput.trim() && !skills.includes(skillInput.trim())) {
+      onChange('skills', [...skills, skillInput.trim()]);
       setSkillInput('');
     }
   };
 
-  const removeSkill = (type: 'technical' | 'soft' | 'tools', index: number) => {
-    setSkills(prev => ({
-      ...prev,
-      [type]: prev[type].filter((_, i) => i !== index),
-    }));
+  const removeSkill = (index: number) => {
+    onChange('skills', skills.filter((_: any, i: number) => i !== index));
   };
 
-  const addSuggestedSkill = (skill: string, type: 'technical' | 'soft' = 'technical') => {
-    if (!skills[type].includes(skill)) {
-      setSkills(prev => ({
-        ...prev,
-        [type]: [...prev[type], skill],
-      }));
+  const addSuggestedSkill = (skill: string) => {
+    if (!skills.includes(skill)) {
+      onChange('skills', [...skills, skill]);
     }
   };
 
@@ -823,14 +1007,14 @@ function SkillsTab({ formData, onChange }: any) {
             onChange={(e) => setSkillInput(e.target.value)}
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
-                addSkill('technical');
+                addSkill();
               }
             }}
             placeholder="Type a skill (e.g. Negotiation) and hit Enter..."
             className="flex-1 px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1a47e8]"
           />
           <button
-            onClick={() => addSkill('technical')}
+            onClick={addSkill}
             className="h-12 w-12 rounded-lg bg-[#1a47e8] hover:bg-[#0f32b8] text-white font-bold flex items-center justify-center transition"
           >
             +
@@ -843,13 +1027,13 @@ function SkillsTab({ formData, onChange }: any) {
             <svg className="h-4 w-4 text-[#1a47e8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-            <span className="text-sm font-semibold text-slate-900 dark:text-white">Suggested for Sales Roles</span>
+            <span className="text-sm font-semibold text-slate-900 dark:text-white">Suggested Skills</span>
           </div>
           <div className="flex flex-wrap gap-3">
-            {suggestedSkills.map((skill) => (
+            {suggestedSkills.filter(s => !skills.includes(s)).map((skill) => (
               <button
                 key={skill}
-                onClick={() => addSuggestedSkill(skill, 'technical')}
+                onClick={() => addSuggestedSkill(skill)}
                 className="flex items-center gap-2 px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-full text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
               >
                 +
@@ -860,67 +1044,19 @@ function SkillsTab({ formData, onChange }: any) {
         </div>
       </div>
 
-      {/* Technical Skills */}
-      {skills.technical.length > 0 && (
+      {/* All Skills */}
+      {skills.length > 0 && (
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Technical Skills</h3>
-            <button className="text-sm font-semibold text-[#1a47e8] hover:text-[#0f32b8]">EDIT</button>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Your Skills</h3>
+            <span className="text-sm text-slate-500 dark:text-slate-400">{skills.length} skills added</span>
           </div>
           <div className="flex flex-wrap gap-3">
-            {skills.technical.map((skill, idx) => (
+            {skills.map((skill: string, idx: number) => (
               <button
                 key={idx}
-                onClick={() => removeSkill('technical', idx)}
+                onClick={() => removeSkill(idx)}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-slate-800 dark:text-slate-200 rounded-full text-sm font-semibold hover:bg-blue-200 dark:hover:bg-blue-900/50 transition"
-              >
-                {skill}
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Soft Skills */}
-      {skills.soft.length > 0 && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Soft Skills</h3>
-            <button className="text-sm font-semibold text-[#1a47e8] hover:text-[#0f32b8]">EDIT</button>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {skills.soft.map((skill, idx) => (
-              <button
-                key={idx}
-                onClick={() => removeSkill('soft', idx)}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-100 dark:bg-purple-900/30 text-slate-800 dark:text-slate-200 rounded-full text-sm font-semibold hover:bg-purple-200 dark:hover:bg-purple-900/50 transition"
-              >
-                {skill}
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Tools & Technologies */}
-      {skills.tools.length > 0 && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Tools & Technologies</h3>
-            <button className="text-sm font-semibold text-[#1a47e8] hover:text-[#0f32b8]">EDIT</button>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {skills.tools.map((skill, idx) => (
-              <button
-                key={idx}
-                onClick={() => removeSkill('tools', idx)}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-slate-800 dark:text-slate-200 rounded-full text-sm font-semibold hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition"
               >
                 {skill}
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -935,7 +1071,10 @@ function SkillsTab({ formData, onChange }: any) {
       {/* Action Buttons */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8">
         <div className="flex justify-between items-center">
-          <button className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+          <button 
+            onClick={onBack}
+            className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+          >
             Back
           </button>
           <button className="px-6 py-3 bg-[#1a47e8] hover:bg-[#0f32b8] text-white font-semibold rounded-lg transition flex items-center gap-2">

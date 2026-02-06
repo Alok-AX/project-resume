@@ -29,13 +29,14 @@ const API_ENDPOINTS = {
         GET: '/api/profile',
         UPDATE: '/api/profile'
     },
-    // Resume endpoints (future)
+    // Resume endpoints
     RESUME: {
         GET_ALL: '/api/resumes',
-        GET_ONE: '/api/resumes/:id',
+        GET_ONE: (id)=>`/api/resumes/${id}`,
         CREATE: '/api/resumes',
-        UPDATE: '/api/resumes/:id',
-        DELETE: '/api/resumes/:id'
+        UPDATE: (id)=>`/api/resumes/${id}`,
+        DELETE: (id)=>`/api/resumes/${id}`,
+        DUPLICATE: (id)=>`/api/resumes/${id}/duplicate`
     },
     // Template endpoints (future)
     TEMPLATES: {
