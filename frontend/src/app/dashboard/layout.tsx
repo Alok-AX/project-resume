@@ -6,6 +6,7 @@ import { useDispatch } from 'react-redux';
 import { loadUserFromStorage } from '@/store/slices/authSlice';
 import type { AppDispatch } from '@/store';
 import Sidebar from '@/components/dashboard/Sidebar';
+import { getToken } from '@/utils/auth';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -13,17 +14,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    console.log('Dashboard layout check - Token:', token ? 'exists' : 'missing');
+    const token = getToken();
     
     if (!token) {
-      console.log('No token, redirecting to login...');
       router.replace('/login');
       return;
     }
     
     // Load user data from storage into Redux
-    console.log('Loading user from storage...');
     dispatch(loadUserFromStorage());
     setIsChecking(false);
   }, [dispatch, router]);

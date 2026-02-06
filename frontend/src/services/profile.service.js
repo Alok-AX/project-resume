@@ -19,7 +19,6 @@ export const profileService = {
       const response = await apiClient.put(API_ENDPOINTS.PROFILE.UPDATE, profileData);
       return response;
     } catch (error) {
-      console.log('Profile service error:', error.response?.data);
       // Throw the complete error object for better handling
       throw error.response?.data || { message: error.message };
     }

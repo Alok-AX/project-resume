@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { authService } from '../../services/auth.service';
 import type { User } from '../../types';
+import { saveAuthData, getToken, getUser, clearAuthData } from '../../utils/auth';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -27,8 +28,7 @@ export const signupUser = createAsyncThunk(
       // Backend returns: { success: true, data: { token, user } }
       const { token, user } = response.data.data || response.data;
       if (token) {
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
+        saveAuthData(token, user);
       }
       return response.data.data || response.data;
     } catch (error) {
@@ -43,15 +43,10 @@ export const loginUser = createAsyncThunk(
   async (credentials: { email: string; password: string }, { rejectWithValue }) => {
     try {
       const response = await authService.login(credentials);
-      console.log('Full response:', response.data);
       // Backend returns: { success: true, data: { token, user } }
       const { token, user } = response.data.data || response.data;
-      console.log('Extracted token:', token);
-      console.log('Extracted user:', user);
       if (token) {
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-        console.log('Token saved to localStorage:', localStorage.getItem('token'));
+        saveAuthData(token, user);
       }
       return response.data.data || response.data;
     } catch (error) {
@@ -90,12 +85,12 @@ const authSlice = createSlice({
     },
     // Load user from localStorage on app init
     loadUserFromStorage(state) {
-      const token = localStorage.getItem('token');
-      const user = localStorage.getItem('user');
+      const token = getToken();
+      const user = getUser();
       if (token && user) {
         state.isAuthenticated = true;
         state.token = token;
-        state.user = JSON.parse(user);
+        state.user = user;
       }
     },
   },

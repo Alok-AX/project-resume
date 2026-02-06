@@ -1,5 +1,6 @@
 import apiClient from './api.service';
 import { API_ENDPOINTS } from '../config/api.config';
+import { clearAuthData } from '../utils/auth';
 
 // Auth Service
 export const authService = {
@@ -16,12 +17,9 @@ export const authService = {
   // Login
   login: async (credentials) => {
     try {
-      console.log('Auth service: Sending login request...');
       const response = await apiClient.post(API_ENDPOINTS.AUTH.LOGIN, credentials);
-      console.log('Auth service: Login response:', response.data);
       return response;
     } catch (error) {
-      console.error('Auth service: Login error:', error.response?.data || error.message);
       throw error.response?.data || error.message;
     }
   },
@@ -38,8 +36,7 @@ export const authService = {
 
   // Logout
   logout: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    clearAuthData();
   },
 };
 

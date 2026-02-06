@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState, AppDispatch } from '@/store';
 import { fetchProfile, updateProfile, clearProfileError } from '@/store/slices/profileSlice';
-import toast from 'react-hot-toast';
+import { showSuccess, showError, showErrorFromException } from '@/utils/toast';
+import { isValidImage } from '@/utils/validation';
+import { createFormChangeHandler } from '@/utils/form';
+import { getToken } from '@/utils/auth';
 
 export default function SettingsPage() {
   const dispatch = useDispatch<AppDispatch>();
@@ -27,7 +30,7 @@ export default function SettingsPage() {
 
   // Fetch profile on mount
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     if (token) {
       dispatch(fetchProfile());
     }
@@ -51,29 +54,20 @@ export default function SettingsPage() {
   // Show error toast only for fetch errors
   useEffect(() => {
     if (error) {
-      toast.error(error);
+      showError(error);
       dispatch(clearProfileError());
     }
   }, [error]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
+  const handleInputChange = createFormChangeHandler(setFormData);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        toast.error('Please upload an image file');
-        return;
-      }
-      // Validate file size (max 2MB)
-      if (file.size > 2 * 1024 * 1024) {
-        toast.error('Image size should be less than 2MB');
+      // Validate using utility
+      const validation = isValidImage(file, 2);
+      if (!validation.valid) {
+        showError(validation.error!);
         return;
       }
       
@@ -93,14 +87,13 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     try {
-      await dispatch(updateProfile(formData)).unwrap();
-      toast.success('Profile updated successfully!');
+      const result = await dispatch(updateProfile(formData)).unwrap();
+      // Use success message from backend if available
+      const successMessage = result?.message || 'Profile updated successfully!';
+      showSuccess(successMessage);
       setIsEditing(false);
     } catch (err) {
-      // Show error toast immediately
-      const errorMessage = typeof err === 'string' ? err : 'Failed to update profile';
-      toast.error(errorMessage);
-      console.error('Update failed:', err);
+      showErrorFromException(err, 'Failed to update profile');
     }
   };
 

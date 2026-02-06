@@ -5,6 +5,7 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { handlePdfUpload } from '@/utils/fileUpload';
 import { sessionStorage } from '@/utils/storage';
+import { showSuccess, showError } from '@/utils/toast';
 
 export default function DashboardPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -28,9 +29,12 @@ export default function DashboardPage() {
 
     if (result.success && result.fileName && result.dataUrl) {
       sessionStorage.setUploadedPdf(result.fileName, result.dataUrl);
+      showSuccess('PDF uploaded successfully!');
       router.push('/dashboard/resumes/preview');
     } else {
-      setUploadError(result.error || 'Failed to upload PDF');
+      const errorMsg = result.error || 'Failed to upload PDF';
+      showError(errorMsg);
+      setUploadError(errorMsg);
       setIsUploading(false);
     }
 

@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { signupUser, clearError } from '@/store/slices/authSlice';
 import type { RootState, AppDispatch } from '@/store';
+import { createFormChangeHandler } from '@/utils/form';
+import { showSuccess, showErrorFromException } from '@/utils/toast';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -26,23 +28,22 @@ export default function SignupPage() {
     };
   }, [dispatch]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
+  const handleChange = createFormChangeHandler(setFormData);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await dispatch(signupUser(formData)).unwrap();
+      const result = await dispatch(signupUser(formData)).unwrap();
+      
+      // Use backend message if available, otherwise default
+      const successMessage = result?.message || 'Account created successfully! Redirecting...';
+      showSuccess(successMessage);
+      
       // Small delay to ensure localStorage is updated
       await new Promise(resolve => setTimeout(resolve, 100));
       router.replace('/dashboard');
     } catch (err) {
-      // Error is shown via Redux state
+      showErrorFromException(err);
     }
   };
 
