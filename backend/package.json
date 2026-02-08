@@ -4,10 +4,15 @@
   "description": "Backend API for Resume Builder with authentication",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node api.js && node server.js",
+    "dev": "node api.js && nodemon server.js"
   },
-  "keywords": ["express", "mongodb", "authentication", "resume-builder"],
+  "keywords": [
+    "express",
+    "mongodb",
+    "authentication",
+    "resume-builder"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
